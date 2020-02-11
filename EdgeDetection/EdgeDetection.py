@@ -1,22 +1,33 @@
 import numpy as np
 import math
+import cv2
+import matplotlib.pyplot as plt
 
 
-def gaussianKernel(sigma, img):
+
+def gaussianBlur(sigma, img):
     size = 2 * math.ceil(3 * sigma) + 1
     x, y = np.mgrid[-size:size + 1, -size:size + 1]
     normal = 1 / (2.0 * np.pi * sigma ** 2)
     gaussian = np.exp(-((x ** 2 + y ** 2) / (2.0 * sigma ** 2))) * normal
-    res = np.convolve(img, gaussian)
+    res = conv2d(img, gaussian)
     return res
+
+
+def conv2d(a, f):
+    s = f.shape + tuple(np.subtract(a.shape, f.shape) + 1)
+    strd = np.lib.stride_tricks.as_strided
+    subM = strd(a, shape=s, strides=a.strides * 2)
+    return np.einsum('ij,ijkl->kl', f, subM)
 
 
 def createSobelFilters(img):
     x = np.array([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]], np.float32)
     y = np.array([[1, 2, 1], [0, 0, 0], [-1, -2, -1]], np.float32)
-    Ix = np.convolve(img, x)
-    Iy = np.convolve(img, y)
-    res = np.sqrt(Ix ** 2 + Iy ** 2)
+    Ix = conv2d(img, x)
+    Iy = conv2d(img, y)
+    res = np.hypot(Ix, Iy)
+    res = res / res.max() * 255
     angle = np.arctan2(Iy, Ix)
     return res, angle
 
@@ -56,9 +67,30 @@ def nonMaxSuppression(img, theta):
                 pass
     return Z
 
-
+# Cannot use cv2.imshow to display images for some reason so I have used matplotlib and it works on Intellij on my
+# computer. I have also submitted a python note book where all of this works using cv2.imshow using google colab
 def myEdgeDetector(img0, sigma):
-    imgSmoothed = gaussianKernel(sigma, img0)
+    img = cv2.imread(img0)
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    imgSmoothed = gaussianBlur(sigma, gray)
+    # cv2.imshow('Smooth Img', imgSmoothed)
+    # cv2.waitKey(0)
+    # cv2.destroyAllWindows()
+    plt.imshow(imgSmoothed)
+    plt.show()
     sobelMat, theta = createSobelFilters(imgSmoothed)
+    # cv2.imshow('Smooth Img', sobelMat)
+    # cv2.waitKey(0)
+    # cv2.destroyAllWindows()
+    plt.imshow(sobelMat)
+    plt.show()
     nonMaxImg = nonMaxSuppression(sobelMat, theta)
+    # cv2.imshow('Non-max', nonMaxImg)
+    # cv2.waitKey(0)
+    # cv2.destroyAllWindows()
+    plt.imshow(nonMaxImg)
+    plt.show()
     return nonMaxImg
+
+
+myEdgeDetector("img0.jpg", 3)
